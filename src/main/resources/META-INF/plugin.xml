@@ -1,0 +1,18 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>ro.nexttech.intellij.bulkmark</id>
+    <name>Bulk Mark Generated Sources Roots</name>
+    <vendor>Toth Andras</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <resource-bundle>messages.MyBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow factoryClass="ro.nexttech.intellij.bulkmark.toolWindow.MyToolWindowFactory"
+                    anchor="left"
+                    secondary="true"
+                    icon="AllIcons.Modules.GeneratedSourceRoot"
+                    id="Bulk Mark Generated Sources Roots"/>
+    </extensions>
+</idea-plugin>
