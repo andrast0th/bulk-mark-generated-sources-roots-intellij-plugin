@@ -11,7 +11,6 @@ import com.intellij.openapi.roots.*
 import com.intellij.openapi.util.Comparing
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.containers.toArray
-import org.apache.commons.lang.StringUtils
 import org.jetbrains.jps.model.java.JavaSourceRootType
 import org.jetbrains.jps.model.java.JpsJavaExtensionService
 import java.util.function.Consumer
@@ -20,6 +19,21 @@ import javax.swing.SwingUtilities
 
 @Service(Service.Level.PROJECT)
 class MyProjectService(private val project: Project) {
+
+    internal class Result(var marked: Int, var skipped: Int) {
+        fun add(res: Result) {
+            marked += res.marked
+            skipped += res.skipped
+        }
+
+        fun mark() {
+            marked++
+        }
+
+        fun skip() {
+            skipped++
+        }
+    }
 
     fun markGeneratedSourcesRoots(
         matchPattern: String,
@@ -32,7 +46,7 @@ class MyProjectService(private val project: Project) {
             writeToConsole.accept("\uD83D\uDCA5 Verbose logging enabled!")
         }
 
-        if (StringUtils.isEmpty(matchPattern)) {
+        if (matchPattern.isEmpty()) {
             writeToConsole.accept("Empty mask, skipping...")
             return
         }
@@ -43,9 +57,9 @@ class MyProjectService(private val project: Project) {
         val allModuleDirs = ProjectRootManager.getInstance(project).contentRoots
         val rootDirs = findRootDirectories(allModuleDirs.toList()).toArray(emptyArray())
 
-        markDirs(rootDirs, regex, writeToConsole, isGeneratedSourceRoot, isVerboseLogging)
+        val res = markDirs(rootDirs, regex, writeToConsole, isGeneratedSourceRoot, isVerboseLogging)
 
-        writeToConsole.accept("Done.")
+        writeToConsole.accept("Done. Changed: " + res.marked + ", skipped: " + res.skipped)
     }
 
     private fun findRootDirectories(directories: List<VirtualFile>): List<VirtualFile> {
@@ -67,10 +81,12 @@ class MyProjectService(private val project: Project) {
         writeToConsole: Consumer<String>,
         isGeneratedSourceRoot: Boolean,
         isVerboseLogging: Boolean
-    ) {
+    ): Result {
         if (dirs.isEmpty()) {
-            return
+            return Result(0, 0)
         }
+
+        val finalRes = Result(0, 0)
 
         dirs.forEach { file ->
             run {
@@ -84,25 +100,32 @@ class MyProjectService(private val project: Project) {
                     }
 
                     if (fileUrl.matches(matchPattern) || Objects.equal(fileName, matchPattern.pattern)) {
+                        writeToConsole.accept("\uD83C\uDF51 Marking dir: '$fileUrl'")
+                        finalRes.mark()
+
                         ApplicationManager.getApplication().invokeLater {
                             ApplicationManager.getApplication().runWriteAction {
                                 val module = findParentModule(project, arrayOf(file))
                                 if (module !== null) {
-                                    writeToConsole.accept("\uD83C\uDF51 Marking dir: '$fileUrl'")
                                     modifyRoots(module, arrayOf(file), isGeneratedSourceRoot)
                                 }
                             }
                         }
                     } else {
+                        finalRes.skip()
                         if (isVerboseLogging) {
                             writeToConsole.accept("❌ Skipping dir: '$fileUrl'")
                         }
                     }
 
-                    markDirs(file.children, matchPattern, writeToConsole, isGeneratedSourceRoot, isVerboseLogging);
+                    val res =
+                        markDirs(file.children, matchPattern, writeToConsole, isGeneratedSourceRoot, isVerboseLogging)
+                    finalRes.add(res)
                 }
             }
         }
+
+        return finalRes
     }
 
     private fun findParentModule(project: Project?, files: Array<VirtualFile>): Module? {

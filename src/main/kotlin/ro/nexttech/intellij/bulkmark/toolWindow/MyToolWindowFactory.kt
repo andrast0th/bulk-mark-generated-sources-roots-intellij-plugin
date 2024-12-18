@@ -1,5 +1,8 @@
 package ro.nexttech.intellij.bulkmark.toolWindow
 
+import com.intellij.execution.filters.TextConsoleBuilderFactory
+import com.intellij.execution.ui.ConsoleView
+import com.intellij.execution.ui.ConsoleViewContentType
 import com.intellij.openapi.components.service
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -20,7 +23,6 @@ import javax.swing.JButton
 import javax.swing.JPanel
 import javax.swing.SwingUtilities
 
-
 class MyToolWindowFactory : ToolWindowFactory {
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
@@ -33,8 +35,16 @@ class MyToolWindowFactory : ToolWindowFactory {
 
     class MyToolWindow(toolWindow: ToolWindow) {
 
-        private val service = toolWindow.project.service<MyProjectService>()
-        private val project = toolWindow.project;
+        private val service: MyProjectService = toolWindow.project.service<MyProjectService>()
+        private val project: Project = toolWindow.project
+        private val console: ConsoleView
+
+        init {
+            val factory = TextConsoleBuilderFactory.getInstance()
+            val builder = factory.createBuilder(project)
+            builder.setViewer(true)
+            console = builder.console
+        }
 
         fun getContent() = JBPanel<JBPanel<*>>().apply {
             layout = GridBagLayout()
@@ -44,7 +54,7 @@ class MyToolWindowFactory : ToolWindowFactory {
             val lblConstraints = GridBagConstraints()
             lblConstraints.gridx = 0
             lblConstraints.gridy = 0
-            val label = JBLabel(MyBundle.message("mask"));
+            val label = JBLabel(MyBundle.message("mask"))
             add(label, lblConstraints)
 
             val inputConstraints = GridBagConstraints()
@@ -86,21 +96,21 @@ class MyToolWindowFactory : ToolWindowFactory {
             consoleConstraints.fill = GridBagConstraints.BOTH
             consoleConstraints.weightx = 1.0
             consoleConstraints.weighty = 1.0
-            val console = JBTextArea()
-            console.isEditable = false
 
-            val scrollPane = JBScrollPane(console)
+            val scrollPane = JBScrollPane(console.component)
             add(scrollPane, consoleConstraints)
 
             val writeToConsole: (String) -> Unit = { str ->
-                SwingUtilities.invokeLater { console.text = console.text + "\n" + str }
+                SwingUtilities.invokeLater {
+                    console.print(str + "\n", ConsoleViewContentType.NORMAL_OUTPUT)
+                }
             }
 
             btnMarkTrue.apply {
                 addActionListener {
                     ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Marking dirs...", false) {
                         override fun run(@NotNull progressIndicator: ProgressIndicator) {
-                            console.text = ""
+                            console.clear()
                             service.markGeneratedSourcesRoots(
                                 input.text,
                                 writeToConsole,
@@ -116,7 +126,7 @@ class MyToolWindowFactory : ToolWindowFactory {
                 addActionListener {
                     ProgressManager.getInstance().run(object : Task.Backgroundable(project, "Unmarking dirs...") {
                         override fun run(@NotNull progressIndicator: ProgressIndicator) {
-                            console.text = ""
+                            console.clear()
                             service.markGeneratedSourcesRoots(
                                 input.text,
                                 writeToConsole,
@@ -131,4 +141,6 @@ class MyToolWindowFactory : ToolWindowFactory {
             btnMarkFalse.requestFocus()
         }
     }
+
+
 }
