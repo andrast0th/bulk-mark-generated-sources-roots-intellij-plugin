@@ -128,4 +128,8 @@ tasks {
         // https://plugins.jetbrains.com/docs/intellij/deployment.html#specifying-a-release-channel
         channels = properties("pluginVersion").map { listOf(it.substringAfter('-').substringBefore('.').ifEmpty { "default" }) }
     }
+
+    buildSearchableOptions {
+        enabled = false
+    }
 }

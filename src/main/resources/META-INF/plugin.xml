@@ -1,7 +1,7 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>ro.nexttech.intellij.bulkmark</id>
-    <name>Bulk Mark Generated Sources Roots</name>
+    <id>ro.nexttech.intelli.bulkmark</id>
+    <name>Bulk Mark Content Roots</name>
+    <description>Bulk Mark Content Roots, for when you have a custom build plugin generating stuff in god knows what folder.</description>
     <vendor>Toth Andras</vendor>
 
     <depends>com.intellij.modules.platform</depends>
@@ -13,6 +13,6 @@
                     anchor="left"
                     secondary="true"
                     icon="AllIcons.Modules.GeneratedSourceRoot"
-                    id="Bulk Mark Generated Sources Roots"/>
+                    id="Bulk Mark Content Roots"/>
     </extensions>
 </idea-plugin>

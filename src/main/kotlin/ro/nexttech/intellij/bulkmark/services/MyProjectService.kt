@@ -1,5 +1,6 @@
 package ro.nexttech.intellij.bulkmark.services
 
+import com.google.common.base.Objects
 import com.intellij.ide.SaveAndSyncHandler
 import com.intellij.ide.projectView.actions.MarkRootActionBase
 import com.intellij.openapi.application.ApplicationManager
@@ -10,23 +11,39 @@ import com.intellij.openapi.roots.*
 import com.intellij.openapi.util.Comparing
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.containers.toArray
+import org.apache.commons.lang.StringUtils
 import org.jetbrains.jps.model.java.JavaSourceRootType
 import org.jetbrains.jps.model.java.JpsJavaExtensionService
 import java.util.function.Consumer
+import javax.swing.SwingUtilities
 
 
 @Service(Service.Level.PROJECT)
 class MyProjectService(private val project: Project) {
 
-    fun markGeneratedSourcesRoots(matchPattern: String, writeToConsole: Consumer<String>, isGeneratedSourceRoot: Boolean) {
+    fun markGeneratedSourcesRoots(
+        matchPattern: String,
+        writeToConsole: Consumer<String>,
+        isGeneratedSourceRoot: Boolean,
+        isVerboseLogging: Boolean
+    ) {
+
+        if (isVerboseLogging) {
+            writeToConsole.accept("\uD83D\uDCA5 Verbose logging enabled!")
+        }
+
+        if (StringUtils.isEmpty(matchPattern)) {
+            writeToConsole.accept("Empty mask, skipping...")
+            return
+        }
 
         val regex = matchPattern.toRegex()
-        writeToConsole.accept("Searching dirs matching mask: $regex")
+        writeToConsole.accept("Searching dirs matching mask: '$regex'")
 
         val allModuleDirs = ProjectRootManager.getInstance(project).contentRoots
         val rootDirs = findRootDirectories(allModuleDirs.toList()).toArray(emptyArray())
 
-        markDirs(rootDirs, regex, writeToConsole, isGeneratedSourceRoot)
+        markDirs(rootDirs, regex, writeToConsole, isGeneratedSourceRoot, isVerboseLogging)
 
         writeToConsole.accept("Done.")
     }
@@ -44,7 +61,13 @@ class MyProjectService(private val project: Project) {
         return roots
     }
 
-    private fun markDirs(dirs: Array<VirtualFile>, matchPattern: Regex, writeToConsole: Consumer<String>, isGeneratedSourceRoot: Boolean) {
+    private fun markDirs(
+        dirs: Array<VirtualFile>,
+        matchPattern: Regex,
+        writeToConsole: Consumer<String>,
+        isGeneratedSourceRoot: Boolean,
+        isVerboseLogging: Boolean
+    ) {
         if (dirs.isEmpty()) {
             return
         }
@@ -52,15 +75,31 @@ class MyProjectService(private val project: Project) {
         dirs.forEach { file ->
             run {
                 if (file.isDirectory) {
+
                     val fileUrl = file.url
-                    if (fileUrl.matches(matchPattern)) {
-                        val module = findParentModule(project, arrayOf(file))
-                        if(module !== null) {
-                            writeToConsole.accept("Marking: $fileUrl")
-                            modifyRoots(module, arrayOf(file), isGeneratedSourceRoot)
+                    val fileName = file.name
+
+                    if (isVerboseLogging) {
+                        writeToConsole.accept("\uD83D\uDD75\uFE0F Checking dir: '$fileUrl'")
+                    }
+
+                    if (fileUrl.matches(matchPattern) || Objects.equal(fileName, matchPattern.pattern)) {
+                        ApplicationManager.getApplication().invokeLater {
+                            ApplicationManager.getApplication().runWriteAction {
+                                val module = findParentModule(project, arrayOf(file))
+                                if (module !== null) {
+                                    writeToConsole.accept("\uD83C\uDF51 Marking dir: '$fileUrl'")
+                                    modifyRoots(module, arrayOf(file), isGeneratedSourceRoot)
+                                }
+                            }
+                        }
+                    } else {
+                        if (isVerboseLogging) {
+                            writeToConsole.accept("❌ Skipping dir: '$fileUrl'")
                         }
                     }
-                    markDirs(file.children, matchPattern, writeToConsole, isGeneratedSourceRoot);
+
+                    markDirs(file.children, matchPattern, writeToConsole, isGeneratedSourceRoot, isVerboseLogging);
                 }
             }
         }
@@ -94,7 +133,7 @@ class MyProjectService(private val project: Project) {
                         break
                     }
                 }
-                if(isGeneratedSourceRoot) {
+                if (isGeneratedSourceRoot) {
                     modifyRoots(file, entry)
                 }
             }
@@ -108,7 +147,9 @@ class MyProjectService(private val project: Project) {
     }
 
     private fun commitModel(module: Module, model: ModifiableRootModel) {
-        ApplicationManager.getApplication().runWriteAction { model.commit() }
-        SaveAndSyncHandler.getInstance().scheduleProjectSave(module.project)
+        model.commit()
+        SwingUtilities.invokeLater {
+            SaveAndSyncHandler.getInstance().scheduleProjectSave(module.project)
+        }
     }
 }
