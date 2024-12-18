@@ -10,7 +10,10 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import com.intellij.ui.components.*
+import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.JBPanel
+import com.intellij.ui.components.JBTextField
 import com.intellij.ui.content.ContentFactory
 import com.intellij.util.ui.JBUI
 import org.jetbrains.annotations.NotNull
@@ -97,8 +100,8 @@ class MyToolWindowFactory : ToolWindowFactory {
             consoleConstraints.weightx = 1.0
             consoleConstraints.weighty = 1.0
 
-            val scrollPane = JBScrollPane(console.component)
-            add(scrollPane, consoleConstraints)
+//            val scrollPane = JBScrollPane(console.component)
+            add(console.component, consoleConstraints)
 
             val writeToConsole: (String) -> Unit = { str ->
                 SwingUtilities.invokeLater {
